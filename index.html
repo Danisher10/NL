@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Nella">
+<meta name="theme-color" content="#000000">
+<meta name="format-detection" content="telephone=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; frame-src blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Nella</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#000;color:#fff;font:16px/1.4 -apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;min-height:100%}
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+#app{max-width:560px;margin:0 auto;padding:8px 20px 40px}
+button{font-family:inherit;cursor:pointer}
+.top{display:flex;align-items:center;justify-content:space-between;height:52px}
+.brand{letter-spacing:.5em;font-weight:300;font-size:15px;padding-left:.5em}
+.icon-btn{background:none;border:0;color:#fff;width:40px;height:40px;display:flex;align-items:center;justify-content:center;padding:0}
+.icon-btn svg{width:22px;height:22px}
+.txt-btn{background:none;border:0;color:#fff;font-size:15px;padding:8px 0}
+.step{color:#777;font-size:11px;letter-spacing:.2em;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:28px}
+.vault{background:#000;border:1px solid #1f1f1f;border-radius:14px;padding:20px 0 14px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:12px}
+.vault:active{background:#0d0d0d}
+.vault svg{width:46px;height:46px}
+.vault span{font-size:11px;letter-spacing:.16em;color:#bbb;text-transform:uppercase}
+h1{font-weight:400;font-size:24px;margin:14px 0 6px;letter-spacing:.01em}
+.sub{color:#8a8a8a;font-size:14px;margin:0 0 22px}
+.btn{display:block;width:100%;height:52px;border-radius:12px;border:1px solid #fff;background:#fff;color:#000;font-size:16px;font-weight:600;margin-top:12px}
+.btn.ghost{background:transparent;color:#fff;border-color:#333;font-weight:500}
+.btn:disabled{opacity:.3}
+.row{display:flex;gap:10px}.row .btn{flex:1}
+.seg{display:flex;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;margin-bottom:16px}
+.seg button{flex:1;height:40px;background:none;border:0;color:#999;font-size:14px}
+.seg button.on{background:#fff;color:#000;font-weight:600}
+.words{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.word{display:flex;align-items:center;border:1px solid #2a2a2a;border-radius:10px;padding:0 10px;height:46px}
+.word i{font-style:normal;color:#5c5c5c;font-size:12px;width:24px;flex:none}
+input{background:transparent;border:0;color:#fff;font-size:16px;outline:none;width:100%;font-family:inherit;padding:0}
+.hide{-webkit-text-security:disc;text-security:disc}
+.field{border:1px solid #2a2a2a;border-radius:10px;padding:0 14px;height:52px;display:flex;align-items:center;margin-bottom:10px}
+.lbl{color:#777;font-size:12px;letter-spacing:.08em;margin:14px 0 6px;text-transform:uppercase}
+.show{display:flex;justify-content:flex-end;margin:6px 0 0}
+.err{color:#fff;font-size:14px;min-height:20px;margin:14px 0 0}
+.err:not(:empty){border:1px solid #444;border-radius:10px;padding:10px 12px}
+.review{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 16px;border:1px solid #2a2a2a;border-radius:12px;padding:16px}
+.review div{font-size:16px}.review i{font-style:normal;color:#5c5c5c;font-size:12px;display:inline-block;width:26px}
+.check{display:flex;gap:12px;align-items:flex-start;margin:18px 0 4px;color:#ccc;font-size:14px}
+.check input{width:22px;height:22px;flex:none;accent-color:#fff}
+.balls{display:grid;grid-template-columns:repeat(5,1fr);gap:16px 10px;justify-items:center;margin:22px 0 10px}
+.ball{width:50px;height:50px;border-radius:50%;border:0;position:relative;transition:transform .08s}
+.ball:active{transform:scale(.88)}
+.ball b{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:#fff;color:#000;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #000}
+.ball.sel{box-shadow:0 0 0 2px #000,0 0 0 4px #fff}
+.dots{display:flex;gap:10px;justify-content:center;height:18px;margin:4px 0}
+.dots span{width:14px;height:14px;border-radius:50%;border:1px solid #444}
+.dots span.f{background:#fff;border-color:#fff}
+.center{text-align:center}
+.big{font-size:44px;font-weight:200;letter-spacing:.04em;margin:28px 0 8px;font-variant-numeric:tabular-nums}
+.tabs{display:flex;border-bottom:1px solid #1f1f1f;margin:6px 0 16px}
+.tabs button{flex:1;background:none;border:0;color:#777;height:44px;font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:#fff;border-bottom-color:#fff}
+.add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:48px;border:1px dashed #333;border-radius:12px;background:none;color:#ddd;font-size:15px;margin-bottom:16px}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.thumb{aspect-ratio:1;background:#111;border:0;padding:0;position:relative;overflow:hidden;border-radius:4px}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px}
+.thumb .play{position:absolute;right:6px;bottom:6px;width:22px;height:22px}
+.list .it{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;border-bottom:1px solid #161616;color:#fff;text-align:left;padding:14px 2px}
+.it .nm{flex:1;min-width:0}.it .nm div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .meta{color:#666;font-size:12px;margin-top:2px}
+.it svg{width:22px;height:22px;flex:none}
+.empty{color:#555;text-align:center;padding:40px 0;font-size:14px}
+.overlay{position:fixed;inset:0;background:#000;z-index:20;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.overlay .bar{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;height:52px;gap:10px}
+.overlay .bar .t{flex:1;text-align:center;font-size:14px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.overlay .body{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;min-height:0}
+.overlay img,.overlay video{max-width:100%;max-height:100%}
+.overlay iframe{width:100%;height:100%;border:0;background:#fff}
+.note-t{font-size:22px;padding:8px 20px;border-bottom:1px solid #1a1a1a}
+.note-b{flex:1;background:transparent;border:0;color:#fff;font:16px/1.5 inherit;font-family:inherit;padding:16px 20px;outline:none;resize:none;width:100%}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#0b0b0b;border-top:1px solid #222;border-radius:18px 18px 0 0;width:100%;max-width:560px;padding:22px 20px calc(22px + env(safe-area-inset-bottom))}
+.sheet p{margin:0 0 8px;color:#ddd;font-size:15px}
+.busy{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#bbb;font-size:14px}
+.spin{width:28px;height:28px;border:2px solid #333;border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hidden-in{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="pickMedia" class="hidden-in" accept="image/*,video/*" multiple>
+<input type="file" id="pickFiles" class="hidden-in" multiple>
+<script>
+'use strict';
+/* ============ Constants ============ */
+const VAULTS = 12, ITER = 600000, CHUNK = 4 * 1024 * 1024;
+const LOCK_MS = 60 * 60 * 1000, MAX_FAILS = 3, IDLE_MS = 5 * 60 * 1000;
+const COLORS = ['#e53935','#fb8c00','#fdd835','#c0ca33','#43a047','#00897b','#00acc1','#1e88e5','#3949ab','#8e24aa',
+                '#d81b60','#f48fb1','#ffcc80','#a5d6a7','#80deea','#90caf9','#b39ddb','#ffffff','#9e9e9e','#6d4c41'];
+const enc = new TextEncoder();
+const VAULT_SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="7" y="9" width="34" height="28" rx="4"/><circle cx="24" cy="23" r="8"/><circle cx="24" cy="23" r="1.5" fill="#fff" stroke="none"/><path d="M11 15v4M11 27v4M13 37v3M35 37v3"/></svg>';
+const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+const MORE = '<svg viewBox="0 0 24 24" fill="#fff"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const FILE = '<svg viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.6" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
+const NOTE = '<svg viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.6" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>';
+const PLAY = '<svg class="play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="rgba(0,0,0,.6)"/><path d="M10 8l6 4-6 4z" fill="#fff"/></svg>';
+
+/* ============ Storage (IndexedDB) ============ */
+let dbP;
+function db() {
+  if (!dbP) dbP = new Promise((res, rej) => {
+    const r = indexedDB.open('nella', 1);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      d.createObjectStore('vaults', { keyPath: 'id' });
+      d.createObjectStore('locks', { keyPath: 'id' });
+      d.createObjectStore('sys', { keyPath: 'k' });
+      d.createObjectStore('items', { keyPath: 'id' }).createIndex('vault', 'vault');
+      d.createObjectStore('chunks', { keyPath: ['item', 'n'] });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbP;
+}
+const rq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const done = t => new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = t.onabort = () => rej(t.error); });
+async function get(s, k) { const d = await db(); return rq(d.transaction(s).objectStore(s).get(k)); }
+async function put(s, v) { const d = await db(); const t = d.transaction(s, 'readwrite'); t.objectStore(s).put(v); return done(t); }
+async function del(s, k) { const d = await db(); const t = d.transaction(s, 'readwrite'); t.objectStore(s).delete(k); return done(t); }
+async function itemsOf(v) { const d = await db(); return rq(d.transaction('items').objectStore('items').index('vault').getAll(v)); }
+async function delItem(id) {
+  const d = await db(); const t = d.transaction(['items', 'chunks'], 'readwrite');
+  t.objectStore('items').delete(id);
+  t.objectStore('chunks').delete(IDBKeyRange.bound([id, 0], [id, Infinity]));
+  return done(t);
+}
+
+/* ============ Crypto ============ */
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+const uid = () => hex(rnd(16));
+async function pbkdf(str, salt, label) {
+  const k = await crypto.subtle.importKey('raw', enc.encode(str), 'PBKDF2', false, ['deriveBits']);
+  const s = new Uint8Array([...salt, ...enc.encode(label)]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: s, iterations: ITER }, k, 256));
+}
+const sha = async b => new Uint8Array(await crypto.subtle.digest('SHA-256', b));
+function same(a, b) { if (!a || !b || a.length !== b.length) return false; let x = 0; for (let i = 0; i < a.length; i++) x |= a[i] ^ b[i]; return x === 0; }
+const aes = raw => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+async function seal(key, data, aad) {
+  const iv = rnd(12);
+  const c = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: enc.encode(aad) }, key, data));
+  return { iv, c };
+}
+async function unseal(key, iv, c, aad) {
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv, additionalData: enc.encode(aad) }, key, c));
+}
+// Each stage input includes everything before it, so later stages can't be attacked on their own.
+const seedStr = w => w.map(x => x.toLowerCase()).join(' ');
+const k1 = seed => 'nella1|' + seed;
+const k2 = (seed, ps) => k1(seed) + '|' + ps.length + '|' + ps.map(p => p.length + ':' + p.normalize('NFC')).join('|');
+const k3 = (seed, ps, cs) => k2(seed, ps) + '|' + cs.length + ':' + cs.join(',');
+
+async function createVault(id, words, ps, cs) {
+  const seed = seedStr(words), salt = rnd(16);
+  const b1 = await pbkdf(k1(seed), salt, 'stage1');
+  const b2 = await pbkdf(k2(seed, ps), salt, 'stage2');
+  const b3 = await pbkdf(k3(seed, ps, cs), salt, 'stage3');
+  const kek = await aes(b3);
+  const dekRaw = rnd(32);
+  const w = await seal(kek, dekRaw, 'dek|' + id);
+  await put('vaults', { id, ver: 1, salt, v1: await sha(b1), v2: await sha(b2), wiv: w.iv, wc: w.c, created: Date.now() });
+  const key = await aes(dekRaw);
+  dekRaw.fill(0); b1.fill(0); b2.fill(0); b3.fill(0);
+  return key;
+}
+
+/* ============ Lockout ============ */
+async function clockCheck() {
+  const now = Date.now(); const c = await get('sys', 'clock'); const last = c ? c.t : 0;
+  if (last && now < last - 2000) {
+    // Clock moved backwards: keep the remaining lock time instead of letting it stretch or vanish.
+    for (let i = 1; i <= VAULTS; i++) {
+      const l = await get('locks', i);
+      if (l && l.until > last) { l.until = now + (l.until - last); await put('locks', l); }
+    }
+  }
+  if (!last || now > last || now < last - 2000) await put('sys', { k: 'clock', t: now });
+}
+async function lockState(id) {
+  await clockCheck();
+  const l = (await get('locks', id)) || { id, fails: 0, until: 0, pending: false };
+  if (l.pending) { l.pending = false; await registerFail(l); }          // app was closed mid-check: counts as a failure
+  if (l.until && Date.now() >= l.until) { l.until = 0; l.fails = 0; await put('locks', l); }
+  return l;
+}
+async function registerFail(l) {
+  l.fails = (l.fails || 0) + 1; l.pending = false;
+  if (l.fails >= MAX_FAILS) { l.until = Date.now() + LOCK_MS; l.fails = 0; }
+  await put('locks', l);
+  return l;
+}
+async function beginCheck(id) { const l = await lockState(id); if (l.until > Date.now()) return null; l.pending = true; await put('locks', l); return l; }
+async function passCheck(l) { l.pending = false; await put('locks', l); }
+async function failCheck(l) { return registerFail(l); }
+async function resetFails(id) { await put('locks', { id, fails: 0, until: 0, pending: false }); }
+
+/* ============ UI helpers ============ */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const app = document.getElementById('app');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let timers = [];
+function view(html) { timers.forEach(clearInterval); timers = []; app.innerHTML = html; window.scrollTo(0, 0); }
+function head(step, right = '') { return `<div class="top"><button class="icon-btn" id="back" aria-label="Back">${BACK}</button><div class="step">${step}</div><div style="width:40px;display:flex;justify-content:flex-end">${right}</div></div>`; }
+function busy(text) { const b = document.createElement('div'); b.className = 'busy'; b.innerHTML = `<div class="spin"></div><div id="busyT">${esc(text)}</div>`; document.body.appendChild(b); return { set: t => { b.querySelector('#busyT').textContent = t; }, close: () => b.remove() }; }
+function modal(html) { const m = document.createElement('div'); m.className = 'modal'; m.innerHTML = `<div class="sheet">${html}</div>`; document.body.appendChild(m); return m; }
+function ask(msg, ok = 'OK') {
+  return new Promise(res => {
+    const m = modal(`<p>${esc(msg)}</p><button class="btn" data-a="ok">${esc(ok)}</button><button class="btn ghost" data-a="no">Cancel</button>`);
+    m.onclick = e => { const a = e.target.closest('[data-a]'); if (!a && e.target !== m) return; m.remove(); res(a && a.dataset.a === 'ok'); };
+  });
+}
+const fmtSize = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB';
+const fmtDate = t => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+const mmss = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+function seg(id, opts, val) { return `<div class="seg" id="${id}">${opts.map(([v, t]) => `<button data-v="${v}" class="${v == val ? 'on' : ''}">${t}</button>`).join('')}</div>`; }
+function onSeg(id, fn) { $$('#' + id + ' button').forEach(b => b.onclick = () => fn(+b.dataset.v)); }
+
+/* ============ Shared inputs ============ */
+const INP = 'autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore';
+function seedHTML(n, vals, hidden) {
+  let h = '<div class="words">';
+  for (let i = 0; i < n; i++) h += `<label class="word"><i>${i + 1}</i><input class="w ${hidden ? 'hide' : ''}" data-i="${i}" ${INP} enterkeyhint="${i === n - 1 ? 'done' : 'next'}" aria-label="Word ${i + 1}" value="${esc(vals[i] || '')}"></label>`;
+  return h + '</div><div class="show"><button class="txt-btn" id="showW">' + (hidden ? 'Show' : 'Hide') + '</button></div>';
+}
+function wireSeed(onEnter) {
+  const ins = $$('input.w');
+  ins.forEach((inp, i) => {
+    inp.addEventListener('input', () => {
+      const v = inp.value;
+      const parts = v.trim().split(/\s+/).filter(Boolean);
+      if (parts.length > 1) { parts.forEach((p, k) => { if (ins[i + k]) ins[i + k].value = p; }); (ins[Math.min(i + parts.length, ins.length - 1)]).focus(); }
+      else if (/\s/.test(v)) { inp.value = v.replace(/\s/g, ''); if (parts.length && ins[i + 1]) ins[i + 1].focus(); }
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (ins[i + 1]) ins[i + 1].focus(); else onEnter(); } });
+  });
+}
+const readSeed = () => $$('input.w').map(x => x.value.trim());
+function seedError(words) {
+  for (let i = 0; i < words.length; i++) {
+    if (!words[i]) return `Word ${i + 1} is empty.`;
+    if (!/^[A-Za-z]{1,8}$/.test(words[i])) return `Word ${i + 1}: letters only, up to 8 letters.`;
+  }
+  return '';
+}
+function passHTML(n, confirm, hidden) {
+  let h = '';
+  for (let i = 0; i < n; i++) {
+    h += `<div class="lbl">Passphrase${n > 1 ? ' ' + (i + 1) : ''}</div><div class="field"><input class="p ${hidden ? 'hide' : ''}" data-i="${i}" maxlength="20" ${INP} aria-label="Passphrase ${i + 1}"></div>`;
+    if (confirm) h += `<div class="field"><input class="pc ${hidden ? 'hide' : ''}" data-i="${i}" maxlength="20" ${INP} placeholder="Confirm" aria-label="Confirm passphrase ${i + 1}"></div>`;
+  }
+  return h + '<div class="show"><button class="txt-btn" id="showP">' + (hidden ? 'Show' : 'Hide') + '</button></div>';
+}
+function ballsHTML(sel, mark) {
+  return `<div class="balls">${COLORS.map((c, i) => { const k = sel.indexOf(i); return `<button class="ball ${mark && k >= 0 ? 'sel' : ''}" data-b="${i}" style="background:${c}" aria-label="Circle ${i + 1}">${mark && k >= 0 ? `<b>${k + 1}</b>` : ''}</button>`; }).join('')}</div>`;
+}
+const dotsHTML = n => `<div class="dots" id="dots">${[0, 1, 2, 3, 4].map(i => `<span class="${i < n ? 'f' : ''}"></span>`).join('')}</div>`;
+
+/* ============ Home ============ */
+let S = null, L = null, session = null;
+function home() {
+  S = null; L = null;
+  view(`<div class="top" style="justify-content:center"><div class="brand">NELLA</div></div>
+  <div class="grid">${Array.from({ length: VAULTS }, (_, i) => `<button class="vault" data-v="${i + 1}" aria-label="Vault ${i + 1}">${VAULT_SVG}<span>Vault ${i + 1}</span></button>`).join('')}</div>`);
+  $$('.vault').forEach(b => b.onclick = () => openVault(+b.dataset.v));
+}
+async function openVault(id) {
+  const l = await lockState(id);
+  if (l.until > Date.now()) return lockedView(id);
+  const v = await get('vaults', id);
+  if (!v) return setupIntro(id);
+  L = { id, v, n: 12, pc: 1, words: [], ps: [], cs: [], msg: '' };
+  loginSeed();
+}
+async function lockedView(id) {
+  const l = await get('locks', id);
+  view(`${head('Vault ' + id)}<div class="center"><h1>Locked</h1><p class="sub">Too many failed attempts.<br>Try again in</p><div class="big" id="cd">${mmss(l.until - Date.now())}</div></div>`);
+  $('#back').onclick = home;
+  timers.push(setInterval(async () => {
+    const s = await lockState(id);
+    if (s.until <= Date.now()) return openVault(id);
+    const cd = $('#cd'); if (cd) cd.textContent = mmss(s.until - Date.now());
+  }, 1000));
+}
+
+/* ============ Setup ============ */
+function setupIntro(id) {
+  view(`${head('Vault ' + id)}<div class="center" style="margin-top:40px">${VAULT_SVG.replace('<svg', '<svg style="width:72px;height:72px"')}<h1>Vault ${id}</h1><p class="sub">This vault is not set up yet.</p></div>
+  <button class="btn" id="go">Set up vault</button><button class="btn ghost" id="cancel">Cancel</button>`);
+  $('#back').onclick = $('#cancel').onclick = home;
+  $('#go').onclick = () => { S = { id, n: 12, words: [], pc: 1, ps: [], cs: [], cs2: [], hidden: false }; setupSeed(); };
+}
+function setupSeed(err = '') {
+  view(`${head('Setup · 1 of 3')}<h1>Seed phrase</h1><p class="sub">Type your own words. Letters only, up to 8 letters each.</p>
+  ${seg('cnt', [[12, '12 words'], [24, '24 words']], S.n)}${seedHTML(S.n, S.words, S.hidden)}<div class="err" id="err">${esc(err)}</div><button class="btn" id="go">Continue</button>`);
+  $('#back').onclick = () => setupIntro(S.id);
+  onSeg('cnt', n => { S.words = readSeed(); S.n = n; setupSeed(); });
+  $('#showW').onclick = () => { S.words = readSeed(); S.hidden = !S.hidden; setupSeed(); };
+  const go = () => {
+    const w = readSeed(); const e = seedError(w);
+    if (e) { $('#err').textContent = e; return; }
+    S.words = w.map(x => x.toLowerCase()); setupReview();
+  };
+  wireSeed(go); $('#go').onclick = go;
+}
+function setupReview() {
+  view(`${head('Setup · 1 of 3')}<h1>Write it down</h1><p class="sub">Keep this somewhere safe and offline. Without all three keys this vault can never be opened. There is no recovery.</p>
+  <div class="review">${S.words.map((w, i) => `<div><i>${i + 1}</i>${esc(w)}</div>`).join('')}</div>
+  <label class="check"><input type="checkbox" id="ok"><span>I have written down my seed phrase.</span></label><button class="btn" id="go" disabled>Continue</button>`);
+  $('#back').onclick = () => setupSeed();
+  $('#ok').onchange = e => { $('#go').disabled = !e.target.checked; };
+  $('#go').onclick = () => setupPass();
+}
+function setupPass(err = '') {
+  view(`${head('Setup · 2 of 3')}<h1>Passphrase</h1><p class="sub">1 to 20 characters. Letters, numbers, symbols or a mix. Case-sensitive.</p>
+  ${seg('pc', [[1, '1 passphrase'], [2, '2 passphrases']], S.pc)}${passHTML(S.pc, true, S.hidden)}<div class="err" id="err">${esc(err)}</div><button class="btn" id="go">Continue</button>`);
+  $('#back').onclick = () => setupReview();
+  onSeg('pc', n => { S.pc = n; setupPass(); });
+  $('#showP').onclick = () => { const p = $$('input.p').map(x => x.value), c = $$('input.pc').map(x => x.value); S.hidden = !S.hidden; setupPass(); $$('input.p').forEach((x, i) => x.value = p[i]); $$('input.pc').forEach((x, i) => x.value = c[i]); };
+  $('#go').onclick = () => {
+    const p = $$('input.p').map(x => x.value), c = $$('input.pc').map(x => x.value);
+    for (let i = 0; i < p.length; i++) {
+      const n = S.pc > 1 ? ' ' + (i + 1) : '';
+      if (!p[i].length) return void ($('#err').textContent = `Passphrase${n} is empty.`);
+      if (p[i].length > 20) return void ($('#err').textContent = `Passphrase${n} is over 20 characters.`);
+      if (p[i] !== c[i]) return void ($('#err').textContent = `Passphrase${n} doesn't match its confirmation.`);
+    }
+    S.ps = p; S.cs = []; setupBalls();
+  };
+}
+function setupBalls() {
+  const render = () => {
+    view(`${head('Setup · 3 of 3')}<h1>Circle sequence</h1><p class="sub">Choose 1 to 5 circles. Which circles and their order both matter.</p>
+    <div class="dots">${[0, 1, 2, 3, 4].map(i => S.cs[i] !== undefined ? `<span style="background:${COLORS[S.cs[i]]};border-color:${COLORS[S.cs[i]]}"></span>` : '<span></span>').join('')}</div>
+    ${ballsHTML(S.cs, true)}<div class="row"><button class="btn ghost" id="undo">Undo</button><button class="btn ghost" id="clr">Clear</button></div>
+    <button class="btn" id="go" ${S.cs.length ? '' : 'disabled'}>Continue</button>`);
+    $('#back').onclick = () => setupPass();
+    $$('.ball').forEach(b => b.onclick = () => { const i = +b.dataset.b; if (S.cs.includes(i) || S.cs.length >= 5) return; S.cs.push(i); render(); });
+    $('#undo').onclick = () => { S.cs.pop(); render(); };
+    $('#clr').onclick = () => { S.cs = []; render(); };
+    $('#go').onclick = () => { S.cs2 = []; setupBallsConfirm(); };
+  };
+  render();
+}
+function setupBallsConfirm(err = '') {
+  view(`${head('Setup · 3 of 3')}<h1>Repeat sequence</h1><p class="sub">Tap the same circles in the same order.</p>
+  ${dotsHTML(S.cs2.length)}${ballsHTML([], false)}<div class="row"><button class="btn ghost" id="undo">Undo</button><button class="btn ghost" id="clr">Clear</button></div>
+  <div class="err" id="err">${esc(err)}</div><button class="btn" id="go" ${S.cs2.length ? '' : 'disabled'}>Create vault</button>`);
+  $('#back').onclick = () => setupBalls();
+  const upd = () => { $('#dots').outerHTML = dotsHTML(S.cs2.length); $('#go').disabled = !S.cs2.length; };
+  $$('.ball').forEach(b => b.onclick = () => { if (S.cs2.length < 5) { S.cs2.push(+b.dataset.b); upd(); } });
+  $('#undo').onclick = () => { S.cs2.pop(); upd(); };
+  $('#clr').onclick = () => { S.cs2 = []; upd(); };
+  $('#go').onclick = async () => {
+    if (S.cs2.join(',') !== S.cs.join(',')) { S.cs2 = []; return setupBallsConfirm("Sequence doesn't match. Try again."); }
+    const b = busy('Securing vault…');
+    try {
+      if (await get('vaults', S.id)) throw new Error('exists');
+      const key = await createVault(S.id, S.words, S.ps, S.cs);
+      await resetFails(S.id);
+      const id = S.id; S = null; b.close();
+      await enterVault(id, key);
+    } catch (e) { b.close(); S = null; home(); }
+  };
+}
+
+/* ============ Login ============ */
+function loginSeed() {
+  view(`${head('Vault ' + L.id + ' · 1 of 3')}<h1>Seed phrase</h1><p class="sub">Enter your seed phrase.</p>
+  ${seg('cnt', [[12, '12 words'], [24, '24 words']], L.n)}${seedHTML(L.n, L.words, L.hidden !== false)}<div class="err" id="err">${esc(L.msg)}</div><button class="btn" id="go">Continue</button>`);
+  $('#back').onclick = home;
+  onSeg('cnt', n => { L.words = readSeed(); L.n = n; loginSeed(); });
+  $('#showW').onclick = () => { L.words = readSeed(); L.hidden = L.hidden === false; loginSeed(); };
+  const go = async () => {
+    const w = readSeed(); const e = seedError(w);
+    if (e) { $('#err').textContent = e; return; }
+    const seed = seedStr(w);
+    const ok = await verify(async v => same(await sha(await pbkdf(k1(seed), v.salt, 'stage1')), v.v1));
+    if (ok) { L.seed = seed; L.words = []; L.msg = ''; loginPass(); }
+  };
+  wireSeed(go); $('#go').onclick = go;
+}
+function loginPass() {
+  view(`${head('Vault ' + L.id + ' · 2 of 3')}<h1>Passphrase</h1><p class="sub">Enter your passphrase.</p>
+  ${seg('pc', [[1, '1 passphrase'], [2, '2 passphrases']], L.pc)}${passHTML(L.pc, false, true)}<div class="err" id="err"></div><button class="btn" id="go">Continue</button>`);
+  $('#back').onclick = home;
+  onSeg('pc', n => { L.pc = n; loginPass(); });
+  $('#showP').onclick = () => $$('input.p').forEach(x => x.classList.toggle('hide'));
+  const go = async () => {
+    const p = $$('input.p').map(x => x.value);
+    if (p.some(x => !x.length)) { $('#err').textContent = 'Passphrase is empty.'; return; }
+    const ok = await verify(async v => same(await sha(await pbkdf(k2(L.seed, p), v.salt, 'stage2')), v.v2));
+    if (ok) { L.ps = p; loginBalls(); }
+  };
+  $$('input.p').forEach((x, i, a) => x.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); a[i + 1] ? a[i + 1].focus() : go(); } }));
+  $('#go').onclick = go;
+}
+function loginBalls() {
+  L.cs = [];
+  view(`${head('Vault ' + L.id + ' · 3 of 3')}<h1>Circle sequence</h1><p class="sub">Tap your circles in order.</p>
+  ${dotsHTML(0)}${ballsHTML([], false)}<div class="row"><button class="btn ghost" id="undo">Undo</button><button class="btn ghost" id="clr">Clear</button></div>
+  <div class="err" id="err"></div><button class="btn" id="go" disabled>Unlock</button>`);
+  $('#back').onclick = home;
+  const upd = () => { $('#dots').outerHTML = dotsHTML(L.cs.length); $('#go').disabled = !L.cs.length; };
+  $$('.ball').forEach(b => b.onclick = () => { if (L.cs.length < 5) { L.cs.push(+b.dataset.b); upd(); } });
+  $('#undo').onclick = () => { L.cs.pop(); upd(); };
+  $('#clr').onclick = () => { L.cs = []; upd(); };
+  $('#go').onclick = async () => {
+    let key = null;
+    const ok = await verify(async v => {
+      const b3 = await pbkdf(k3(L.seed, L.ps, L.cs), v.salt, 'stage3');
+      try { const raw = await unseal(await aes(b3), v.wiv, v.wc, 'dek|' + L.id); key = await aes(raw); raw.fill(0); return true; }
+      catch { return false; } finally { b3.fill(0); }
+    }, true);
+    if (ok && key) { const id = L.id; L = null; await enterVault(id, key); }
+  };
+}
+// Runs one stage check with failure counting. Wrong answer: back to step 1 (or lockout).
+async function verify(check, last) {
+  const id = L.id;
+  const l = await beginCheck(id);
+  if (!l) return lockedView(id), false;
+  const b = busy('Verifying…');
+  let ok = false;
+  try { ok = await check(L.v); } catch { ok = false; }
+  b.close();
+  if (ok) { if (last) await resetFails(id); else await passCheck(l); return true; }
+  const r = await failCheck(l);
+  if (r.until > Date.now()) { L = null; lockedView(id); return false; }
+  const left = MAX_FAILS - r.fails;
+  L = { id, v: L.v, n: L.n, pc: 1, words: [], ps: [], cs: [], msg: `Incorrect. ${left} attempt${left === 1 ? '' : 's'} left before a 60-minute lock.` };
+  loginSeed();
+  return false;
+}
+
+/* ============ Vault ============ */
+let urls = [];
+const aadM = (v, id) => `m|${v}|${id}`, aadT = (v, id) => `t|${v}|${id}`, aadC = (v, id, k) => `c|${v}|${id}|${k}`;
+async function enterVault(id, key) {
+  session = { id, key, tab: 'media', items: [] };
+  lastAct = Date.now();
+  const b = busy('Opening…');
+  try {
+    const raw = await itemsOf(id);
+    for (const it of raw) {
+      try {
+        const meta = JSON.parse(new TextDecoder().decode(await unseal(key, it.miv, it.mc, aadM(id, it.id))));
+        let thumb = null;
+        if (it.tc) { const t = await unseal(key, it.tiv, it.tc, aadT(id, it.id)); thumb = URL.createObjectURL(new Blob([t], { type: 'image/jpeg' })); urls.push(thumb); }
+        session.items.push({ id: it.id, n: it.n, meta, thumb });
+      } catch { /* unreadable record skipped */ }
+    }
+  } finally { b.close(); }
+  vaultView();
+}
+function lockSession() {
+  if (!session) return;
+  session = null;
+  urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
+  $$('.overlay,.modal,.busy').forEach(x => x.remove());
+  home();
+}
+function vaultView() {
+  const s = session; if (!s) return home();
+  const list = s.items.filter(i => i.meta.kind === s.tab).sort((a, b) => (b.meta.updated || b.meta.created) - (a.meta.updated || a.meta.created));
+  let body = '';
+  if (s.tab === 'media') {
+    body = `<button class="add" id="add">+ Add photos or videos</button>` + (list.length ? `<div class="thumbs">${list.map(i => `<button class="thumb" data-id="${i.id}">${i.thumb ? `<img src="${i.thumb}" alt="">` : `<div class="ph">${(i.meta.type || '').startsWith('video') ? 'Video' : 'Photo'}</div>`}${(i.meta.type || '').startsWith('video') ? PLAY : ''}</button>`).join('')}</div>` : '<div class="empty">No photos or videos yet.</div>');
+  } else if (s.tab === 'file') {
+    body = `<button class="add" id="add">+ Add documents</button>` + (list.length ? `<div class="list">${list.map(i => `<button class="it" data-id="${i.id}">${FILE}<div class="nm"><div>${esc(i.meta.name)}</div><div class="meta">${fmtSize(i.meta.size)} · ${fmtDate(i.meta.created)}</div></div></button>`).join('')}</div>` : '<div class="empty">No documents yet.</div>');
+  } else {
+    body = `<button class="add" id="add">+ New note</button>` + (list.length ? `<div class="list">${list.map(i => `<button class="it" data-id="${i.id}">${NOTE}<div class="nm"><div>${esc(i.meta.title || 'Untitled')}</div><div class="meta">${fmtDate(i.meta.updated || i.meta.created)}</div></div></button>`).join('')}</div>` : '<div class="empty">No notes yet.</div>');
+  }
+  view(`<div class="top"><button class="icon-btn" id="lock" aria-label="Lock vault">${LOCK}</button><div class="step">Vault ${s.id}</div><button class="icon-btn" id="more" aria-label="Vault options">${MORE}</button></div>
+  <div class="tabs">${[['media', 'Media'], ['file', 'Documents'], ['note', 'Notes']].map(([k, t]) => `<button data-t="${k}" class="${s.tab === k ? 'on' : ''}">${t}</button>`).join('')}</div>${body}`);
+  $('#lock').onclick = lockSession;
+  $('#more').onclick = vaultMenu;
+  $$('.tabs button').forEach(b => b.onclick = () => { s.tab = b.dataset.t; vaultView(); });
+  $('#add').onclick = () => {
+    if (s.tab === 'note') return noteEditor(null);
+    picking = true; (s.tab === 'media' ? $('#pickMedia') : $('#pickFiles')).click();
+  };
+  $$('[data-id]').forEach(b => b.onclick = () => { const it = s.items.find(x => x.id === b.dataset.id); s.tab === 'note' ? noteEditor(it) : viewer(it); });
+}
+
+/* ---- Uploads ---- */
+async function makeThumb(file) {
+  const draw = (src, w, h) => { const c = document.createElement('canvas'); const r = Math.min(1, 360 / Math.max(w, h)); c.width = Math.round(w * r); c.height = Math.round(h * r); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return new Promise(res => c.toBlob(res, 'image/jpeg', .72)); };
+  try {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      try { const img = new Image(); img.src = url; await img.decode(); return await draw(img, img.naturalWidth, img.naturalHeight); } finally { URL.revokeObjectURL(url); }
+    }
+    if (file.type.startsWith('video/')) {
+      const url = URL.createObjectURL(file);
+      try {
+        const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+        await new Promise((res, rej) => { const t = setTimeout(() => rej(new Error('timeout')), 6000); v.onloadeddata = () => { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); }; v.onseeked = () => { clearTimeout(t); res(); }; v.onerror = () => { clearTimeout(t); rej(new Error('video')); }; });
+        return await draw(v, v.videoWidth, v.videoHeight);
+      } finally { URL.revokeObjectURL(url); }
+    }
+  } catch { }
+  return null;
+}
+async function addFiles(files, kind) {
+  const s = session; if (!s || !files.length) return;
+  busyFlag = true;
+  const b = busy('Encrypting…');
+  let failed = 0;
+  try {
+    for (let f = 0; f < files.length; f++) {
+      if (session !== s) break;
+      const file = files[f], id = uid(), n = Math.max(1, Math.ceil(file.size / CHUNK));
+      try {
+        for (let k = 0; k < n; k++) {
+          b.set(`Encrypting ${f + 1} of ${files.length}` + (n > 1 ? ` · ${Math.round(k / n * 100)}%` : ''));
+          const part = new Uint8Array(await file.slice(k * CHUNK, (k + 1) * CHUNK).arrayBuffer());
+          const sealed = await seal(s.key, part, aadC(s.id, id, k)); part.fill(0);
+          await put('chunks', { item: id, n: k, iv: sealed.iv, c: sealed.c });
+        }
+        const meta = { kind, name: file.name || 'file', type: file.type || '', size: file.size, created: Date.now() };
+        const m = await seal(s.key, enc.encode(JSON.stringify(meta)), aadM(s.id, id));
+        const rec = { id, vault: s.id, n, miv: m.iv, mc: m.c };
+        let thumb = null;
+        if (kind === 'media') {
+          const tb = await makeThumb(file);
+          if (tb) { const t = await seal(s.key, new Uint8Array(await tb.arrayBuffer()), aadT(s.id, id)); rec.tiv = t.iv; rec.tc = t.c; thumb = URL.createObjectURL(tb); urls.push(thumb); }
+        }
+        await put('items', rec);
+        s.items.push({ id, n, meta, thumb });
+      } catch (e) { failed++; try { await delItem(id); } catch { } }
+    }
+  } finally { b.close(); busyFlag = false; lastAct = Date.now(); }
+  if (session === s) { vaultView(); if (failed) modal(`<p>${failed} item${failed > 1 ? 's' : ''} could not be saved. Your iPhone may be out of space for Nella.</p><button class="btn" onclick="this.closest('.modal').remove()">OK</button>`); }
+}
+$('#pickMedia').onchange = e => { picking = false; const f = [...e.target.files]; e.target.value = ''; addFiles(f, 'media'); };
+$('#pickFiles').onchange = e => { picking = false; const f = [...e.target.files]; e.target.value = ''; addFiles(f, 'file'); };
+
+async function readBlob(it) {
+  const s = session, parts = [];
+  for (let k = 0; k < it.n; k++) { const ch = await get('chunks', [it.id, k]); parts.push(await unseal(s.key, ch.iv, ch.c, aadC(s.id, it.id, k))); }
+  return new Blob(parts, { type: it.meta.type || 'application/octet-stream' });
+}
+
+/* ---- Viewer ---- */
+async function viewer(it) {
+  const s = session;
+  const b = busy('Decrypting…'); let blob;
+  try { blob = await readBlob(it); } catch { b.close(); return; }
+  b.close(); if (session !== s) return;
+  const url = URL.createObjectURL(blob); urls.push(url);
+  const t = it.meta.type || '';
+  let inner;
+  if (t.startsWith('image/')) inner = `<img src="${url}" alt="">`;
+  else if (t.startsWith('video/')) inner = `<video src="${url}" controls playsinline></video>`;
+  else if (t === 'application/pdf' || t.startsWith('text/')) inner = `<iframe src="${url}" sandbox title="Document"></iframe>`;
+  else inner = `<div class="center" style="padding:30px">${FILE.replace('<svg', '<svg style="width:56px;height:56px"')}<p>${esc(it.meta.name)}</p><p class="sub">${fmtSize(it.meta.size)}<br>Preview isn't available for this file type. Use Share to open it in another app.</p></div>`;
+  const o = document.createElement('div'); o.className = 'overlay';
+  o.innerHTML = `<div class="bar"><button class="txt-btn" id="vClose">Close</button><div class="t">${esc(it.meta.name)}</div><button class="txt-btn" id="vMore">More</button></div><div class="body">${inner}</div>`;
+  document.body.appendChild(o);
+  const close = () => { o.remove(); URL.revokeObjectURL(url); };
+  o.querySelector('#vClose').onclick = close;
+  o.querySelector('#vMore').onclick = () => {
+    const m = modal(`<button class="btn" data-a="share">Share / Save to…</button><button class="btn ghost" data-a="del">Delete from vault</button><button class="btn ghost" data-a="x">Cancel</button>`);
+    m.onclick = async e => {
+      const a = e.target.closest('[data-a]'); if (!a && e.target !== m) return; m.remove(); if (!a) return;
+      if (a.dataset.a === 'share') {
+        const file = new File([blob], it.meta.name, { type: t || 'application/octet-stream' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { picking = true; try { await navigator.share({ files: [file] }); } catch { } picking = false; }
+        else { const l = document.createElement('a'); l.href = url; l.download = it.meta.name; l.click(); }
+      }
+      if (a.dataset.a === 'del' && await ask('Delete this item from the vault? This cannot be undone.', 'Delete')) {
+        await delItem(it.id); session.items = session.items.filter(x => x.id !== it.id); close(); vaultView();
+      }
+    };
+  };
+}
+
+/* ---- Notes ---- */
+async function noteEditor(it) {
+  const s = session; let body = '';
+  if (it) { try { body = new TextDecoder().decode(await unseal(s.key, ...(await (async () => { const c = await get('chunks', [it.id, 0]); return [c.iv, c.c]; })()), aadC(s.id, it.id, 0))); } catch { return; } }
+  if (session !== s) return;
+  const o = document.createElement('div'); o.className = 'overlay';
+  o.innerHTML = `<div class="bar"><button class="txt-btn" id="nDone">Done</button><div class="t"></div><button class="txt-btn" id="nDel">${it ? 'Delete' : ''}</button></div>
+  <input class="note-t" id="nT" placeholder="Title" maxlength="120" ${INP}><textarea class="note-b" id="nB" placeholder="Write a note…" autocapitalize="sentences"></textarea>`;
+  document.body.appendChild(o);
+  const T = o.querySelector('#nT'), B = o.querySelector('#nB');
+  T.value = it ? (it.meta.title || '') : ''; B.value = body;
+  if (!it) T.focus();
+  o.querySelector('#nDone').onclick = async () => {
+    const title = T.value.trim(), text = B.value;
+    if (!it && !title && !text.trim()) { o.remove(); return; }
+    const id = it ? it.id : uid(), now = Date.now();
+    const meta = { kind: 'note', name: title || 'Untitled', title, type: 'text/plain', size: enc.encode(text).length, created: it ? it.meta.created : now, updated: now };
+    const c = await seal(s.key, enc.encode(text), aadC(s.id, id, 0));
+    const m = await seal(s.key, enc.encode(JSON.stringify(meta)), aadM(s.id, id));
+    await put('chunks', { item: id, n: 0, iv: c.iv, c: c.c });
+    await put('items', { id, vault: s.id, n: 1, miv: m.iv, mc: m.c });
+    if (it) it.meta = meta; else s.items.push({ id, n: 1, meta, thumb: null });
+    o.remove(); if (session === s) vaultView();
+  };
+  if (it) o.querySelector('#nDel').onclick = async () => {
+    if (!await ask('Delete this note? This cannot be undone.', 'Delete')) return;
+    await delItem(it.id); s.items = s.items.filter(x => x.id !== it.id); o.remove(); vaultView();
+  };
+}
+
+/* ---- Vault menu ---- */
+async function vaultMenu() {
+  let used = '';
+  try { const e = await navigator.storage.estimate(); used = `Nella storage: ${fmtSize(e.usage || 0)} used of ${fmtSize(e.quota || 0)} available`; } catch { }
+  const s = session;
+  const m = modal(`<p style="color:#888;font-size:13px">${esc(used)}</p><button class="btn ghost" data-a="erase">Erase this vault</button><button class="btn" data-a="x">Close</button>`);
+  m.onclick = async e => {
+    const a = e.target.closest('[data-a]'); if (!a && e.target !== m) return; m.remove(); if (!a || a.dataset.a !== 'erase') return;
+    const c = modal(`<p>Erase Vault ${s.id}? Everything inside and its three keys are deleted permanently. Type ERASE to confirm.</p><div class="field"><input id="eIn" ${INP} autocapitalize="characters"></div><button class="btn" id="eGo">Erase vault</button><button class="btn ghost" id="eNo">Cancel</button>`);
+    c.querySelector('#eNo').onclick = () => c.remove();
+    c.querySelector('#eGo').onclick = async () => {
+      if (c.querySelector('#eIn').value.trim() !== 'ERASE') return;
+      c.remove(); const b = busy('Erasing…');
+      for (const it of await itemsOf(s.id)) await delItem(it.id);
+      await del('vaults', s.id); await del('locks', s.id);
+      b.close(); lockSession();
+    };
+  };
+}
+
+/* ============ Auto-lock ============ */
+let picking = false, busyFlag = false, lastAct = Date.now();
+['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, () => { lastAct = Date.now(); }, true));
+document.addEventListener('visibilitychange', () => { if (document.hidden && session && !picking && !busyFlag) lockSession(); if (!document.hidden) picking = false; });
+window.addEventListener('pagehide', () => { if (session) lockSession(); });
+setInterval(() => { if (session && !busyFlag && Date.now() - lastAct > IDLE_MS) lockSession(); clockCheck().catch(() => { }); }, 15000);
+
+/* ============ Start ============ */
+if ('serviceWorker' in navigator && location.protocol === 'https:' || location.hostname === 'localhost') {
+  navigator.serviceWorker && navigator.serviceWorker.register('./sw.js').catch(() => { });
+}
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
+clockCheck().catch(() => { }).finally(home);
+</script>
+</body>
+</html>
