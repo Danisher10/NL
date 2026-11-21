@@ -1,5 +1,5 @@
 // Nella offline cache. Bump VERSION when app files change.
-const VERSION = 'nella-v1';
+const VERSION = 'nella-v2';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -92,6 +92,13 @@ input{background:transparent;border:0;color:#fff;font-size:16px;outline:none;wid
 .busy{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#bbb;font-size:14px}
 .spin{width:28px;height:28px;border:2px solid #333;border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+.vault{transition:background .15s}
+.vault.flash{background:#fff}.vault.flash svg{stroke:#000}.vault.flash svg [fill="#fff"]{fill:#000}.vault.flash span{color:#000}
+.gate-light{position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#22c55e;box-shadow:0 0 14px 4px rgba(34,197,94,.55);opacity:0;transition:opacity .4s;pointer-events:none}
+.gate-light.on{opacity:1}
+.box{border:1px solid #2a2a2a;border-radius:12px;padding:14px 16px;color:#ccc;font-size:14px;line-height:1.5;margin:6px 0 4px}
+.seq{min-height:22px;text-align:center;color:#fff;font-size:15px;letter-spacing:.04em;margin:16px 0 4px;word-break:break-word}
+.count{text-align:center;color:#666;font-size:12px}
 .hidden-in{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 </style>
 </head>
@@ -283,10 +290,12 @@ let S = null, L = null, session = null;
 function home() {
   S = null; L = null;
   view(`<div class="top" style="justify-content:center"><div class="brand">NELLA</div></div>
-  <div class="grid">${Array.from({ length: VAULTS }, (_, i) => `<button class="vault" data-v="${i + 1}" aria-label="Vault ${i + 1}">${VAULT_SVG}<span>Vault ${i + 1}</span></button>`).join('')}</div>`);
-  $$('.vault').forEach(b => b.onclick = () => openVault(+b.dataset.v));
+  <div class="grid">${Array.from({ length: VAULTS }, (_, i) => `<button class="vault" data-v="${i + 1}" aria-label="Vault ${i + 1}">${VAULT_SVG}<span>Vault ${i + 1}</span></button>`).join('')}</div>
+  <div class="gate-light ${gateOK ? 'on' : ''}" id="gateLight"></div>`);
+  $$('.vault').forEach(b => b.onclick = () => gateOK ? openVault(+b.dataset.v) : gateTap(+b.dataset.v));
 }
 async function openVault(id) {
+  if (!gateOK) return home();
   const l = await lockState(id);
   if (l.until > Date.now()) return lockedView(id);
   const v = await get('vaults', id);
@@ -411,7 +420,8 @@ function loginPass() {
   const go = async () => {
     const p = $$('input.p').map(x => x.value);
     if (p.some(x => !x.length)) { $('#err').textContent = 'Passphrase is empty.'; return; }
-    const ok = await verify(async v => same(await sha(await pbkdf(k2(L.seed, p), v.salt, 'stage2')), v.v2));
+    const seed = L.seed;
+    const ok = await verify(async v => same(await sha(await pbkdf(k2(seed, p), v.salt, 'stage2')), v.v2));
     if (ok) { L.ps = p; loginBalls(); }
   };
   $$('input.p').forEach((x, i, a) => x.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); a[i + 1] ? a[i + 1].focus() : go(); } }));
@@ -429,36 +439,110 @@ function loginBalls() {
   $('#clr').onclick = () => { L.cs = []; upd(); };
   $('#go').onclick = async () => {
     let key = null;
+    const seed = L.seed, ps = L.ps, cs = L.cs.slice(), vid = L.id;
     const ok = await verify(async v => {
-      const b3 = await pbkdf(k3(L.seed, L.ps, L.cs), v.salt, 'stage3');
-      try { const raw = await unseal(await aes(b3), v.wiv, v.wc, 'dek|' + L.id); key = await aes(raw); raw.fill(0); return true; }
+      const b3 = await pbkdf(k3(seed, ps, cs), v.salt, 'stage3');
+      try { const raw = await unseal(await aes(b3), v.wiv, v.wc, 'dek|' + vid); key = await aes(raw); raw.fill(0); return true; }
       catch { return false; } finally { b3.fill(0); }
     }, true);
-    if (ok && key) { const id = L.id; L = null; await enterVault(id, key); }
+    if (ok && key) { L = null; await enterVault(vid, key); }
   };
 }
 // Runs one stage check with failure counting. Wrong answer: back to step 1 (or lockout).
 async function verify(check, last) {
-  const id = L.id;
+  const id = L.id, v = L.v, n = L.n;
   const l = await beginCheck(id);
   if (!l) return lockedView(id), false;
   const b = busy('Verifying…');
   let ok = false;
-  try { ok = await check(L.v); } catch { ok = false; }
+  try { ok = await check(v); } catch { ok = false; }
   b.close();
-  if (ok) { if (last) await resetFails(id); else await passCheck(l); return true; }
-  const r = await failCheck(l);
+  let r = null;
+  if (ok) { if (last) await resetFails(id); else await passCheck(l); }
+  else r = await failCheck(l);
+  if (!gateOK) { L = null; home(); return false; }   // app was left mid-check
+  if (ok) return true;
   if (r.until > Date.now()) { L = null; lockedView(id); return false; }
   const left = MAX_FAILS - r.fails;
-  L = { id, v: L.v, n: L.n, pc: 1, words: [], ps: [], cs: [], msg: `Incorrect. ${left} attempt${left === 1 ? '' : 's'} left before a 60-minute lock.` };
+  L = { id, v, n, pc: 1, words: [], ps: [], cs: [], msg: `Incorrect. ${left} attempt${left === 1 ? '' : 's'} left before a 60-minute lock.` };
   loginSeed();
   return false;
+}
+
+/* ============ Secret login ============ */
+const GATE_ITER = 60000, GATE_MIN = 3, GATE_MAX = 13;
+let gateOK = false, gateRec = null, gateBuf = [], gateQ = Promise.resolve(), gateGen = 0;
+async function gateHash(seq, salt) {
+  const k = await crypto.subtle.importKey('raw', enc.encode('gate|' + seq.join(',')), 'PBKDF2', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: GATE_ITER }, k, 256));
+}
+// Silent check: keeps the last N taps and compares them. Wrong order shows nothing at all.
+function gateTap(v) {
+  if (!gateRec || gateOK) return;
+  gateBuf.push(v); if (gateBuf.length > gateRec.n) gateBuf.shift();
+  if (gateBuf.length < gateRec.n) return;
+  const attempt = gateBuf.slice(), gen = gateGen;
+  gateQ = gateQ.then(async () => {
+    if (gateOK || gen !== gateGen) return;
+    if (same(await gateHash(attempt, gateRec.salt), gateRec.h) && gen === gateGen) {
+      gateOK = true; gateBuf = []; const g = $('#gateLight'); if (g) g.classList.add('on');
+    }
+  }).catch(() => { });
+}
+function gateReset() { gateOK = false; gateBuf = []; gateGen++; const g = $('#gateLight'); if (g) g.classList.remove('on'); }
+function gateGrid() { return `<div class="grid" style="margin-top:14px">${Array.from({ length: VAULTS }, (_, i) => `<button class="vault" data-v="${i + 1}" aria-label="Vault ${i + 1}">${VAULT_SVG}<span>Vault ${i + 1}</span></button>`).join('')}</div>`; }
+function flash(b) { b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 260); }
+function gateIntro() {
+  view(`<div class="top" style="justify-content:center"><div class="brand">NELLA</div></div>
+  <div class="center" style="margin-top:90px">${VAULT_SVG.replace('<svg', '<svg style="width:64px;height:64px"')}<p style="margin:28px 0 0;font-size:17px;color:#ddd">Press OK when no one is around.</p></div>
+  <button class="btn" id="go" style="margin-top:44px">OK</button>`);
+  $('#go').onclick = () => gateCreate([]);
+}
+function gateCreate(seq) {
+  view(`<div class="top" style="justify-content:center"><div class="step">Secret login</div></div>
+  <div class="box">Create your secret login. Tap the vaults in the order you choose, ${GATE_MIN} to ${GATE_MAX} taps. You can tap the same vault more than once. Write the order down.<br><br>Every time you open Nella, tap this order on the main screen. A green light at the bottom means you're in. Nothing shows if the order is wrong.</div>
+  ${gateGrid()}<div class="seq" id="seq"></div><div class="count" id="cnt"></div>
+  <div class="row"><button class="btn ghost" id="undo">Undo</button><button class="btn ghost" id="clr">Clear</button></div>
+  <button class="btn" id="go">Done</button>`);
+  const upd = () => { $('#seq').textContent = seq.join(' · '); $('#cnt').textContent = `${seq.length} of ${GATE_MAX}` + (seq.length < GATE_MIN ? ` · minimum ${GATE_MIN}` : ''); $('#go').disabled = seq.length < GATE_MIN; };
+  $$('.vault').forEach(b => b.onclick = () => { if (seq.length >= GATE_MAX) return; seq.push(+b.dataset.v); flash(b); upd(); });
+  $('#undo').onclick = () => { seq.pop(); upd(); };
+  $('#clr').onclick = () => { seq.length = 0; upd(); };
+  $('#go').onclick = () => gateReview(seq);
+  upd();
+}
+function gateReview(seq) {
+  view(`${head('Secret login')}<h1>Write it down</h1><p class="sub">Without this order you can't reach any vault. There is no recovery.</p>
+  <div class="review">${seq.map((v, i) => `<div><i>${i + 1}</i>Vault ${v}</div>`).join('')}</div>
+  <label class="check"><input type="checkbox" id="ok"><span>I have written down my secret login.</span></label><button class="btn" id="go" disabled>Continue</button>`);
+  $('#back').onclick = () => gateCreate(seq);
+  $('#ok').onchange = e => { $('#go').disabled = !e.target.checked; };
+  $('#go').onclick = () => gateConfirm(seq, []);
+}
+function gateConfirm(seq, rep, err = '') {
+  view(`${head('Secret login')}<h1>Repeat your order</h1><p class="sub">Tap the same vaults in the same order.</p>
+  ${gateGrid()}<div class="count" id="cnt" style="margin-top:16px"></div><div class="err" id="err">${esc(err)}</div>
+  <div class="row"><button class="btn ghost" id="undo">Undo</button><button class="btn ghost" id="clr">Clear</button></div><button class="btn" id="go" disabled>Save</button>`);
+  $('#back').onclick = () => gateReview(seq);
+  const upd = () => { $('#cnt').textContent = `${rep.length} of ${seq.length}`; $('#go').disabled = rep.length !== seq.length; };
+  $$('.vault').forEach(b => b.onclick = () => { if (rep.length >= seq.length) return; rep.push(+b.dataset.v); flash(b); upd(); });
+  $('#undo').onclick = () => { rep.pop(); upd(); };
+  $('#clr').onclick = () => { rep.length = 0; upd(); };
+  $('#go').onclick = async () => {
+    if (rep.join(',') !== seq.join(',')) return gateConfirm(seq, [], "Order doesn't match. Try again.");
+    const b = busy('Saving…');
+    const salt = rnd(16), rec = { k: 'gate', salt, n: seq.length, h: await gateHash(seq, salt), iter: GATE_ITER };
+    await put('sys', rec);
+    b.close(); gateRec = rec; gateOK = true; home();
+  };
+  upd();
 }
 
 /* ============ Vault ============ */
 let urls = [];
 const aadM = (v, id) => `m|${v}|${id}`, aadT = (v, id) => `t|${v}|${id}`, aadC = (v, id, k) => `c|${v}|${id}|${k}`;
 async function enterVault(id, key) {
+  if (!gateOK) return home();
   session = { id, key, tab: 'media', items: [] };
   lastAct = Date.now();
   const b = busy('Opening…');
@@ -651,16 +735,29 @@ async function vaultMenu() {
 /* ============ Auto-lock ============ */
 let picking = false, busyFlag = false, lastAct = Date.now();
 ['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, () => { lastAct = Date.now(); }, true));
-document.addEventListener('visibilitychange', () => { if (document.hidden && session && !picking && !busyFlag) lockSession(); if (!document.hidden) picking = false; });
-window.addEventListener('pagehide', () => { if (session) lockSession(); });
-setInterval(() => { if (session && !busyFlag && Date.now() - lastAct > IDLE_MS) lockSession(); clockCheck().catch(() => { }); }, 15000);
+function leaveApp() {
+  if (!gateRec) return;                       // still creating the secret login
+  gateReset();
+  if (session) return lockSession();
+  $$('.overlay,.modal,.busy').forEach(x => x.remove());
+  home();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden && !picking && !busyFlag) leaveApp(); if (!document.hidden) picking = false; });
+window.addEventListener('pagehide', leaveApp);
+setInterval(() => {
+  if (!busyFlag && Date.now() - lastAct > IDLE_MS && (session || gateOK || L || S)) leaveApp();
+  clockCheck().catch(() => { });
+}, 15000);
 
 /* ============ Start ============ */
 if ('serviceWorker' in navigator && location.protocol === 'https:' || location.hostname === 'localhost') {
   navigator.serviceWorker && navigator.serviceWorker.register('./sw.js').catch(() => { });
 }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
-clockCheck().catch(() => { }).finally(home);
+clockCheck().catch(() => { }).finally(async () => {
+  try { gateRec = (await get('sys', 'gate')) || null; } catch { gateRec = null; }
+  gateRec ? home() : gateIntro();
+});
 </script>
 </body>
 </html>
