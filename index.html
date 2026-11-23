@@ -181,16 +181,16 @@ const k2 = (seed, ps) => k1(seed) + '|' + ps.length + '|' + ps.map(p => p.length
 const k3 = (seed, ps, cs) => k2(seed, ps) + '|' + cs.length + ':' + cs.join(',');
 
 async function createVault(id, words, ps, cs) {
+  // Version 2: one combined key from all 3 steps. No per-step check values are stored,
+  // so the steps can only be guessed together, never one at a time.
   const seed = seedStr(words), salt = rnd(16);
-  const b1 = await pbkdf(k1(seed), salt, 'stage1');
-  const b2 = await pbkdf(k2(seed, ps), salt, 'stage2');
   const b3 = await pbkdf(k3(seed, ps, cs), salt, 'stage3');
   const kek = await aes(b3);
   const dekRaw = rnd(32);
   const w = await seal(kek, dekRaw, 'dek|' + id);
-  await put('vaults', { id, ver: 1, salt, v1: await sha(b1), v2: await sha(b2), wiv: w.iv, wc: w.c, created: Date.now() });
+  await put('vaults', { id, ver: 2, salt, wiv: w.iv, wc: w.c, created: Date.now() });
   const key = await aes(dekRaw);
-  dekRaw.fill(0); b1.fill(0); b2.fill(0); b3.fill(0);
+  dekRaw.fill(0); b3.fill(0);
   return key;
 }
 
@@ -425,9 +425,7 @@ function loginSeed() {
   const go = async () => {
     const w = readSeed(); const e = seedError(w);
     if (e) { $('#err').textContent = e; return; }
-    const seed = seedStr(w);
-    const ok = await verify(async v => same(await sha(await pbkdf(k1(seed), v.salt, 'stage1')), v.v1));
-    if (ok) { L.seed = seed; L.words = []; L.msg = ''; loginPass(); }
+    L.seed = seedStr(w); L.words = []; L.msg = ''; loginPass();   // checked together with steps 2 and 3
   };
   wireSeed(go); $('#go').onclick = go;
 }
@@ -440,9 +438,7 @@ function loginPass() {
   const go = async () => {
     const p = $$('input.p').map(x => x.value);
     if (p.some(x => !x.length)) { $('#err').textContent = 'Passphrase is empty.'; return; }
-    const seed = L.seed;
-    const ok = await verify(async v => same(await sha(await pbkdf(k2(seed, p), v.salt, 'stage2')), v.v2));
-    if (ok) { L.ps = p; loginBalls(); }
+    L.ps = p; loginBalls();   // checked together with step 3
   };
   $$('input.p').forEach((x, i, a) => x.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); a[i + 1] ? a[i + 1].focus() : go(); } }));
   $('#go').onclick = go;
@@ -462,7 +458,11 @@ function loginBalls() {
     const seed = L.seed, ps = L.ps, cs = L.cs.slice(), vid = L.id;
     const ok = await verify(async v => {
       const b3 = await pbkdf(k3(seed, ps, cs), v.salt, 'stage3');
-      try { const raw = await unseal(await aes(b3), v.wiv, v.wc, 'dek|' + vid); key = await aes(raw); raw.fill(0); return true; }
+      try {
+        const raw = await unseal(await aes(b3), v.wiv, v.wc, 'dek|' + vid); key = await aes(raw); raw.fill(0);
+        if (v.v1 || v.v2) { const nv = { ...v }; delete nv.v1; delete nv.v2; nv.ver = 2; await put('vaults', nv); }   // upgrade older vaults
+        return true;
+      }
       catch { return false; } finally { b3.fill(0); }
     }, true);
     if (ok && key) { L = null; await enterVault(vid, key); }
@@ -786,7 +786,7 @@ async function buildBackup(id) {
   const items = await itemsOf(id);
   const head = {
     app: 'nella', ver: 1, vault: id, created: Date.now(),
-    v: { ver: v.ver, salt: b64(v.salt), v1: b64(v.v1), v2: b64(v.v2), wiv: b64(v.wiv), wc: b64(v.wc), created: v.created },
+    v: { ver: v.ver, salt: b64(v.salt), wiv: b64(v.wiv), wc: b64(v.wc), created: v.created, ...(v.v1 ? { v1: b64(v.v1), v2: b64(v.v2) } : {}) },
     items: items.map(it => ({ id: it.id, n: it.n, miv: b64(it.miv), mc: b64(it.mc), tiv: it.tc ? b64(it.tiv) : null, tc: it.tc ? b64(it.tc) : null }))
   };
   const hj = enc.encode(JSON.stringify(head));
@@ -854,7 +854,7 @@ async function writeBackup(file, head, start) {
       await put('items', rec);
     }
     const v = head.v;
-    await put('vaults', { id, ver: v.ver, salt: unb64(v.salt), v1: unb64(v.v1), v2: unb64(v.v2), wiv: unb64(v.wiv), wc: unb64(v.wc), created: v.created });
+    await put('vaults', { id, ver: v.ver, salt: unb64(v.salt), wiv: unb64(v.wiv), wc: unb64(v.wc), created: v.created, ...(v.v1 ? { v1: unb64(v.v1), v2: unb64(v.v2) } : {}) });
     await resetFails(id);
   } catch (e) {
     for (const x of done) { try { await delItem(x); } catch { } }
