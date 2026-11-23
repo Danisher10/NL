@@ -106,6 +106,7 @@ input{background:transparent;border:0;color:#fff;font-size:16px;outline:none;wid
 <div id="app"></div>
 <input type="file" id="pickMedia" class="hidden-in" accept="image/*,video/*" multiple>
 <input type="file" id="pickFiles" class="hidden-in" multiple>
+<input type="file" id="pickBackup" class="hidden-in">
 <script>
 'use strict';
 /* ============ Constants ============ */
@@ -335,8 +336,9 @@ async function lockedView(id) {
 /* ============ Setup ============ */
 function setupIntro(id) {
   view(`${head('Vault ' + id)}<div class="center" style="margin-top:40px">${VAULT_SVG.replace('<svg', '<svg style="width:72px;height:72px"')}<h1>Vault ${id}</h1><p class="sub">This vault is not set up yet.</p></div>
-  <button class="btn" id="go">Set up vault</button><button class="btn ghost" id="cancel">Cancel</button>`);
+  <button class="btn" id="go">Set up vault</button><button class="btn ghost" id="restore">Restore from backup</button><button class="btn ghost" id="cancel">Cancel</button>`);
   $('#back').onclick = $('#cancel').onclick = home;
+  $('#restore').onclick = () => { restoreTarget = id; picking = true; $('#pickBackup').click(); };
   $('#go').onclick = () => { S = { id, n: 12, words: [], pc: 1, ps: [], cs: [], cs2: [], hidden: false }; setupSeed(); };
 }
 function setupSeed(err = '') {
@@ -752,9 +754,11 @@ async function vaultMenu() {
   let used = '';
   try { const e = await navigator.storage.estimate(); used = `Nella storage: ${fmtSize(e.usage || 0)} used of ${fmtSize(e.quota || 0)} available`; } catch { }
   const s = session;
-  const m = modal(`<p style="color:#888;font-size:13px">${esc(used)}</p><button class="btn ghost" data-a="erase">Erase this vault</button><button class="btn" data-a="x">Close</button>`);
+  const m = modal(`<p style="color:#888;font-size:13px">${esc(used)}</p><button class="btn ghost" data-a="backup">Export encrypted backup</button><button class="btn ghost" data-a="erase">Erase this vault</button><button class="btn" data-a="x">Close</button>`);
   m.onclick = async e => {
-    const a = e.target.closest('[data-a]'); if (!a && e.target !== m) return; m.remove(); if (!a || a.dataset.a !== 'erase') return;
+    const a = e.target.closest('[data-a]'); if (!a && e.target !== m) return; m.remove();
+    if (a && a.dataset.a === 'backup') return exportBackup();
+    if (!a || a.dataset.a !== 'erase') return;
     const c = modal(`<p>Erase Vault ${s.id}? Everything inside and its three keys are deleted permanently. Type ERASE to confirm.</p><div class="field"><input id="eIn" ${INP} autocapitalize="characters"></div><button class="btn" id="eGo">Erase vault</button><button class="btn ghost" id="eNo">Cancel</button>`);
     c.querySelector('#eNo').onclick = () => c.remove();
     c.querySelector('#eGo').onclick = async () => {
@@ -766,6 +770,116 @@ async function vaultMenu() {
     };
   };
 }
+
+/* ============ Encrypted backup ============ */
+// File layout: "NELLABK1" | header length (4 bytes) | header JSON | per chunk: iv (12) | length (4) | ciphertext.
+// Everything sensitive inside is already encrypted with the vault key, which only the vault's 3 steps unlock.
+const MAGIC = 'NELLABK1';
+let restoreTarget = 0;
+const b64 = u => { const a = new Uint8Array(u); let s = ''; for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const u32 = n => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, n); return b; };
+function note(msg) { const m = modal(`<p>${esc(msg)}</p><button class="btn" data-a="ok">OK</button>`); return new Promise(r => { m.onclick = e => { if (e.target.closest('[data-a]') || e.target === m) { m.remove(); r(); } }; }); }
+
+async function buildBackup(id) {
+  const v = await get('vaults', id); if (!v) throw new Error('no vault');
+  const items = await itemsOf(id);
+  const head = {
+    app: 'nella', ver: 1, vault: id, created: Date.now(),
+    v: { ver: v.ver, salt: b64(v.salt), v1: b64(v.v1), v2: b64(v.v2), wiv: b64(v.wiv), wc: b64(v.wc), created: v.created },
+    items: items.map(it => ({ id: it.id, n: it.n, miv: b64(it.miv), mc: b64(it.mc), tiv: it.tc ? b64(it.tiv) : null, tc: it.tc ? b64(it.tc) : null }))
+  };
+  const hj = enc.encode(JSON.stringify(head));
+  const parts = [enc.encode(MAGIC), u32(hj.length), hj];
+  for (const it of items) for (let k = 0; k < it.n; k++) {
+    const ch = await get('chunks', [it.id, k]); if (!ch) throw new Error('missing chunk');
+    parts.push(new Uint8Array(ch.iv), u32(ch.c.byteLength), new Uint8Array(ch.c));
+  }
+  return new Blob(parts, { type: 'application/octet-stream' });
+}
+async function exportBackup() {
+  const s = session; if (!s) return;
+  const b = busy('Preparing backup…'); busyFlag = true;
+  let blob;
+  try { blob = await buildBackup(s.id); } catch { b.close(); busyFlag = false; return note('Backup failed. Nothing was saved.'); }
+  b.close(); busyFlag = false; lastAct = Date.now();
+  const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const name = `Nella-Vault-${s.id}-${day}.nella`;
+  const file = new File([blob], name, { type: 'application/octet-stream' });
+  const m = modal(`<p>Backup of Vault ${s.id} is ready (${fmtSize(blob.size)}).</p><p class="sub" style="margin:0 0 6px">Tap Save, then choose “Save to Files”. Keep a second copy off this iPhone, like a USB drive. It only opens with this vault's 3 steps.</p><button class="btn" id="bSave">Save</button><button class="btn ghost" id="bNo">Cancel</button>`);
+  m.querySelector('#bNo').onclick = () => m.remove();
+  m.querySelector('#bSave').onclick = async () => {
+    m.remove();
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      picking = true; try { await navigator.share({ files: [file], title: name }); } catch { } picking = false;
+    } else {
+      const u = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(u), 120000);
+    }
+  };
+}
+async function readBackupHead(file) {
+  const rd = async (o, n) => new Uint8Array(await file.slice(o, o + n).arrayBuffer());
+  if (file.size < 12) throw new Error('bad');
+  if (new TextDecoder().decode(await rd(0, 8)) !== MAGIC) throw new Error('bad');
+  const hl = new DataView((await rd(8, 4)).buffer).getUint32(0);
+  if (!hl || 12 + hl > file.size || hl > 256 * 1024 * 1024) throw new Error('bad');
+  const head = JSON.parse(new TextDecoder().decode(await rd(12, hl)));
+  if (head.app !== 'nella' || head.ver !== 1 || !Number.isInteger(head.vault) || head.vault < 1 || head.vault > VAULTS || !head.v || !Array.isArray(head.items)) throw new Error('bad');
+  for (const it of head.items) if (!/^[0-9a-f]{32}$/.test(it.id) || !Number.isInteger(it.n) || it.n < 1) throw new Error('bad');
+  // Walk the chunk table to make sure the file is complete before touching storage
+  let off = 12 + hl;
+  for (const it of head.items) for (let k = 0; k < it.n; k++) {
+    if (off + 16 > file.size) throw new Error('bad');
+    const len = new DataView((await rd(off + 12, 4)).buffer).getUint32(0);
+    off += 16 + len; if (off > file.size) throw new Error('bad');
+  }
+  if (off !== file.size) throw new Error('bad');
+  return { head, start: 12 + hl };
+}
+async function writeBackup(file, head, start) {
+  const id = head.vault, rd = async (o, n) => new Uint8Array(await file.slice(o, o + n).arrayBuffer());
+  const done = []; let off = start;
+  try {
+    for (const it of head.items) {
+      done.push(it.id);
+      for (let k = 0; k < it.n; k++) {
+        const iv = await rd(off, 12), len = new DataView((await rd(off + 12, 4)).buffer).getUint32(0);
+        const c = await rd(off + 16, len); off += 16 + len;
+        await put('chunks', { item: it.id, n: k, iv, c });
+      }
+      const rec = { id: it.id, vault: id, n: it.n, miv: unb64(it.miv), mc: unb64(it.mc) };
+      if (it.tc) { rec.tiv = unb64(it.tiv); rec.tc = unb64(it.tc); }
+      await put('items', rec);
+    }
+    const v = head.v;
+    await put('vaults', { id, ver: v.ver, salt: unb64(v.salt), v1: unb64(v.v1), v2: unb64(v.v2), wiv: unb64(v.wiv), wc: unb64(v.wc), created: v.created });
+    await resetFails(id);
+  } catch (e) {
+    for (const x of done) { try { await delItem(x); } catch { } }
+    try { await del('vaults', id); } catch { }
+    throw e;
+  }
+}
+async function restoreFile(file) {
+  const target = restoreTarget; restoreTarget = 0;
+  if (!file || !gateOK) return;
+  const b = busy('Checking backup…');
+  let parsed;
+  try { parsed = await readBackupHead(file); } catch { b.close(); return note('This file is not a Nella backup, or it is incomplete or damaged. Nothing was changed.'); }
+  b.close();
+  const n = parsed.head.vault;
+  if (await get('vaults', n)) return note(`This backup is for Vault ${n}, which is already set up. To restore it, open Vault ${n}, erase it, then restore.`);
+  if (n !== target && !(await ask(`This backup is for Vault ${n}. Restore it into Vault ${n}?`, 'Restore'))) return;
+  const b2 = busy('Restoring…'); busyFlag = true;
+  try { await writeBackup(file, parsed.head, parsed.start); }
+  catch { b2.close(); busyFlag = false; return note('Restore failed. Your iPhone may be out of space. Nothing was changed.'); }
+  b2.close(); busyFlag = false; lastAct = Date.now();
+  home();
+  note(`Vault ${n} restored. Open it with its 3 steps.`);
+}
+$('#pickBackup').onchange = e => { picking = false; const f = e.target.files[0]; e.target.value = ''; restoreFile(f); };
 
 /* ============ Auto-lock ============ */
 let picking = false, busyFlag = false, lastAct = Date.now();
