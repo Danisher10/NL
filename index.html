@@ -295,10 +295,12 @@ const dotsHTML = n => `<div class="dots" id="dots">${[0, 1, 2, 3, 4].map(i => `<
 let S = null, L = null, session = null;
 function home() {
   S = null; L = null; recovering = false;
-  if (tileRec && !gateOK) return tileLogin();
+  if (!tileRec) return gateIntro();                  // tiles must exist first
+  if (!tileOK) return tileLogin();                   // layer 1: tiles
+  if (!gateRec) return gateCreate([]);               // layer 2 not created yet
   view(`<div class="top" style="justify-content:center"><div class="brand" id="brand">NELLA</div></div>
   <div class="grid">${Array.from({ length: VAULTS }, (_, i) => `<button class="vault" data-v="${i + 1}" aria-label="Vault ${i + 1}">${VAULT_SVG}<span>Vault ${i + 1}</span></button>`).join('')}</div>
-  ${tileRec ? '' : `<div class="gate-light ${gateOK ? 'on' : ''}" id="gateLight"></div>`}`);
+  <div class="gate-light ${gateOK ? 'on' : ''}" id="gateLight"></div>`);
   $$('.vault').forEach(b => {
     onPress(b, () => {
       if (gateOK) { b._gateTap = false; return; }
@@ -309,10 +311,10 @@ function home() {
       if (gateOK) openVault(+b.dataset.v);
     };
   });
-  if (!tileRec) hiddenReset($('#brand'));
+  hiddenReset($('#brand'), 'gate');
 }
 // Hidden recovery: 7 taps within 4 seconds
-function hiddenReset(el) { let n = 0, t0 = 0; onPress(el, () => { const now = Date.now(); if (now - t0 > 4000) { n = 0; t0 = now; } if (++n >= 7) { n = 0; recoveryIntro(); } }); }
+function hiddenReset(el, mode) { let n = 0, t0 = 0; onPress(el, () => { const now = Date.now(); if (now - t0 > 4000) { n = 0; t0 = now; } if (++n >= 7) { n = 0; recoveryIntro(mode); } }); }
 // Fires once per finger touch (or mouse press). Unlike "click", iOS never drops it for fast or repeated taps.
 function onPress(el, fn) {
   if (!el) return;
@@ -513,11 +515,10 @@ function gateTap(v) {
     if (gateOK || gen !== gateGen) return;
     if (same(await gateHash(attempt, gateRec.salt), gateRec.h) && gen === gateGen) {
       gateOK = true; gateBuf = []; const g = $('#gateLight'); if (g) g.classList.add('on');
-      if (!tileRec) setTimeout(() => { if (gateOK && !session) tileCreate(); }, 700);   // upgrade to the tile login
     }
   }).catch(() => { });
 }
-function gateReset() { gateOK = false; gateBuf = []; gateGen++; const g = $('#gateLight'); if (g) g.classList.remove('on'); }
+function gateReset(keepTiles) { if (!keepTiles) tileOK = false; gateOK = false; gateBuf = []; gateGen++; const g = $('#gateLight'); if (g) g.classList.remove('on'); }
 function gateGrid() { return `<div class="grid" style="margin-top:14px">${Array.from({ length: VAULTS }, (_, i) => `<button class="vault" data-v="${i + 1}" aria-label="Vault ${i + 1}">${VAULT_SVG}<span>Vault ${i + 1}</span></button>`).join('')}</div>`; }
 function flash(b) { b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 260); }
 function gateIntro() {
@@ -526,13 +527,14 @@ function gateIntro() {
   <button class="btn" id="go" style="margin-top:44px">OK</button>`);
   $('#go').onclick = () => tileCreate();
 }
-async function recoveryIntro() {
+async function recoveryIntro(mode) {
   if (session) return;
-  gateReset();
+  gateReset(mode === 'gate');
   const anyVault = (await Promise.all(Array.from({ length: VAULTS }, (_, i) => get('vaults', i + 1)))).some(Boolean);
-  if (!anyVault) return tileCreate();     // nothing to protect yet
-  recovering = true;
-  view(`${head('Reset tile login')}<div class="box">Forgot your secret login? Unlock any one of your vaults with its 3 keys, then create a new secret login. Wrong keys count as failed attempts, as usual.</div>
+  if (!anyVault) return mode === 'gate' ? gateCreate([]) : tileCreate();     // nothing to protect yet
+  recovering = mode;
+  const what = mode === 'gate' ? 'vault order' : 'tile login';
+  view(`${head('Reset ' + what)}<div class="box">Forgot your ${what}? Unlock any one of your vaults with its 3 keys, then create a new ${what}. Wrong keys count as failed attempts, as usual.</div>
   <div class="grid">${Array.from({ length: VAULTS }, (_, i) => `<button class="vault" data-v="${i + 1}" aria-label="Vault ${i + 1}">${VAULT_SVG}<span>Vault ${i + 1}</span></button>`).join('')}</div>`);
   $('#back').onclick = () => { recovering = false; home(); };
   $$('.vault').forEach(b => b.onclick = async () => {
@@ -584,7 +586,7 @@ function gateConfirm(seq, rep, err = '') {
 /* ============ Tile login (5 x 5) ============ */
 // Hold one tile with one finger, tap 3–10 other tiles with another, release the held tile.
 const TILE_MIN = 3, TILE_MAX = 10, TILE_ITER = 60000;
-let tileRec = null, tileGen = 0;
+let tileRec = null, tileGen = 0, tileOK = false;
 async function tileHash(anchor, seq, salt) {
   const k = await crypto.subtle.importKey('raw', enc.encode('tiles|' + anchor + '|' + seq.join(',')), 'PBKDF2', false, ['deriveBits']);
   return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: TILE_ITER }, k, 256));
@@ -616,17 +618,17 @@ function wireTiles(show, onTap, onDone) {
 function tileLogin() {
   S = null; L = null; recovering = false;
   view(`<div class="tile-top" id="tileTop"></div>${tileGrid()}`);
-  hiddenReset($('#tileTop'));
+  hiddenReset($('#tileTop'), 'tiles');
   const gen = ++tileGen;
   tileUnwire = wireTiles(false, null, async (a, seq) => {
     if (!a || seq.length < TILE_MIN || !tileRec) return;             // silent: nothing happens
     const okay = same(await tileHash(a, seq, tileRec.salt), tileRec.h);
-    if (okay && gen === tileGen && !gateOK) { gateOK = true; home(); }
+    if (okay && gen === tileGen && !tileOK) { tileOK = true; home(); }
   });
 }
 function tileCreate(err = '') {
   view(`<div class="top" style="justify-content:center"><div class="step">Tile login</div></div>
-  <div class="box">Hold any one tile with one finger. While holding it, tap ${TILE_MIN} to ${TILE_MAX} other tiles with another finger, in the order you choose. You can tap the same tile more than once. The held tile can't be tapped. Let go of the held tile when you're done.<br><br>Every time you open Nella, do the same to reach your vaults. Nothing shows if it's wrong.</div>
+  <div class="box">Hold any one tile with one finger. While holding it, tap ${TILE_MIN} to ${TILE_MAX} other tiles with another finger, in the order you choose. You can tap the same tile more than once. The held tile can't be tapped. Let go of the held tile when you're done.<br><br>Every time you open Nella, do this first. Then your vaults appear and you tap your vault order. Nothing shows if the tiles are wrong.</div>
   <div style="margin-top:14px">${tileGrid()}</div><div class="count" id="cnt" style="margin-top:14px">0 of ${TILE_MAX}</div><div class="err" id="err">${esc(err)}</div>`);
   tileUnwire = wireTiles(true, n => { $('#cnt').textContent = `${n} of ${TILE_MAX}`; }, (a, seq) => {
     if (!a) return tileCreate('Interrupted. Try again.');
@@ -652,8 +654,8 @@ function tileConfirm(a, seq, err = '') {
     if (a2 !== a || s2.join(',') !== seq.join(',')) return tileConfirm(a, seq, "Didn't match. Try again.");
     const b = busy('Saving…');
     const salt = rnd(16), rec = { k: 'tiles', salt, h: await tileHash(a, seq, salt), iter: TILE_ITER };
-    await put('sys', rec); try { await del('sys', 'gate'); } catch { }
-    b.close(); tileRec = rec; gateRec = null; gateOK = true; home();
+    await put('sys', rec);
+    b.close(); tileRec = rec; tileOK = true; home();   // next: vault order (create it if new)
   });
 }
 
@@ -661,7 +663,7 @@ function tileConfirm(a, seq, err = '') {
 let urls = [];
 const aadM = (v, id) => `m|${v}|${id}`, aadT = (v, id) => `t|${v}|${id}`, aadC = (v, id, k) => `c|${v}|${id}|${k}`;
 async function enterVault(id, key) {
-  if (recovering) { recovering = false; return tileCreate(); }   // keys proven: set a new secret login
+  if (recovering) { const m = recovering; recovering = false; return m === 'gate' ? gateCreate([]) : tileCreate(); }   // keys proven: set a new login
   if (!gateOK) return home();
   session = { id, key, tab: 'media', items: [] };
   lastAct = Date.now();
@@ -968,7 +970,7 @@ $('#pickBackup').onchange = e => { picking = false; const f = e.target.files[0];
 let picking = false, busyFlag = false, lastAct = Date.now();
 ['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, () => { lastAct = Date.now(); }, true));
 function leaveApp() {
-  if (!gateRec && !tileRec) return;           // still creating the login
+  if (!tileRec) return;                       // still creating the tile login
   recovering = false;
   gateReset();
   if (session) return lockSession();
@@ -978,7 +980,7 @@ function leaveApp() {
 document.addEventListener('visibilitychange', () => { if (document.hidden && !picking && !busyFlag) leaveApp(); if (!document.hidden) picking = false; });
 window.addEventListener('pagehide', leaveApp);
 setInterval(() => {
-  if (!busyFlag && Date.now() - lastAct > IDLE_MS && (session || gateOK || L || S)) leaveApp();
+  if (!busyFlag && Date.now() - lastAct > IDLE_MS && (session || gateOK || tileOK || L || S)) leaveApp();
   clockCheck().catch(() => { });
 }, 15000);
 
@@ -989,7 +991,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:' || location.h
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 clockCheck().catch(() => { }).finally(async () => {
   try { tileRec = (await get('sys', 'tiles')) || null; gateRec = (await get('sys', 'gate')) || null; } catch { }
-  tileRec ? tileLogin() : gateRec ? home() : gateIntro();
+  home();
 });
 </script>
 </body>
